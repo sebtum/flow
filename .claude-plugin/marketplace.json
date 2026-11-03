@@ -1,0 +1,14 @@
+{
+  "name": "flow",
+  "description": "Marketplace containing the flow plugin.",
+  "owner": {
+    "name": "sebtum"
+  },
+  "plugins": [
+    {
+      "name": "flow",
+      "source": "./",
+      "description": "Spec-driven workflow: plan, execute, verify."
+    }
+  ]
+}
