@@ -30,7 +30,7 @@ Never open `.workflow/*.log.md`. It holds the author's claims, not evidence.
 3. Run the checks listed in Spec → Checks, plus any repo-required scanners. Reuse an earlier result only if source, dependencies, command and environment are unchanged since; otherwise rerun.
 4. Probe beyond the happy-path tests: boundary values, empty/invalid input, error paths, retries, concurrency, partial failure. Use scratch commands or temporary scripts outside the repo; don't modify repo files.
 5. Review in one pass:
-   - Requirements: every acceptance criterion met, nothing out of scope added.
+   - Requirements: every acceptance criterion met, nothing out of scope added. Items in Spec → Next steps are known deferred work, so don't report them as defects. But if one of them is actually required by this milestone's acceptance criteria, report that as a defect.
    - Correctness and integration with existing code; backward compatibility.
    - Security and privacy where applicable: authorization boundaries, input handling, injection, secrets or sensitive data in logs and errors, unsafe defaults, transactions, race conditions. Don't disable existing security controls.
    - Tests: do they actually check the behaviour, including failure paths?

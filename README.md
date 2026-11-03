@@ -47,9 +47,22 @@ claude
 ```
 
 - **Always `/clear` between phases.** A slash command runs in the current conversation and cannot clear it or open a new window. `/clear` gives each phase a fresh context; the task record carries everything forward. A new terminal window works just as well.
-- **Large projects:** plan all milestones once, detailing only the first. Run `/flow:plan M3` only when a later milestone still has open questions. Execute and verify every milestone.
 - **Small tasks:** one milestone. Same loop.
 - **Ambiguity during execution:** execute stops and suggests `/flow:plan <question>`. That is the single, narrow Opus escalation; the answer is recorded under Decisions.
+
+## Several milestones
+
+```
+/flow:plan <goal>        → M1 detailed, M2..Mn as one-liners, cut items in Next steps
+loop for each milestone k:
+  (optional) /clear → /flow:plan Mk     only if Mk is still thin or earlier work changed its assumptions
+  /clear → /flow:execute Mk
+  /clear → /flow:verify Mk              → fix and re-verify until it's clean, or you accept the gaps
+```
+
+- **Planning the bigger picture** happens once, in the first `/flow:plan`. It fixes the goal, the milestone order and dependencies, and what doesn't fit the budget. Later `/flow:plan Mk` runs only add detail to one milestone. If execute or verify shows the goal or scope itself is wrong, run `/flow:plan <what changed>` to re-plan.
+- **Next steps:** whatever doesn't fit the time budget or available resources goes into Spec → *Next steps*, with the reason it was deferred. Plan writes it up front, and execute adds what it couldn't finish. At the end, the record shows what was done (verified milestones) and what comes next.
+- **Another level of hierarchy?** Not inside one record. When the work splits into independent deliverables that each need their own scope discussion (e.g. separate features or releases over weeks), use one task record per deliverable in `.workflow/`. For a project of a few hours, a single record with 2 to 5 milestones is enough.
 
 ## Why verify is unbiased
 

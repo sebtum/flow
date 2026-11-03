@@ -24,7 +24,7 @@ Input: $ARGUMENTS
 - Consequential ambiguity (changes behaviour, contracts or scope) → stop, explain it in two or three lines, and suggest `/flow:plan <question>`. Decide routine choices yourself.
 
 ## 2. Record
-Write only to `.workflow/<task>.log.md` (create it if missing; one `### M<n>` block per milestone): status, changed files, checks run (command → result, revision), notes and remaining gaps. For fixes, list which findings were addressed. Don't paste logs or narratives. Don't edit the Spec; if it needs changing, that's `/flow:plan`.
+Write only to `.workflow/<task>.log.md` (create it if missing; one `### M<n>` block per milestone): status, changed files, checks run (command → result, revision), notes and remaining gaps. For fixes, list which findings were addressed. Don't paste logs or narratives. Don't edit the Spec, except to append unfinished or newly discovered follow-up work to Spec → **Next steps** (with the reason). Any other Spec change is `/flow:plan`.
 
 ## 3. Report (short)
 - What behaviour changed, and the key control flow to read first (file:line).
@@ -33,4 +33,4 @@ Write only to `.workflow/<task>.log.md` (create it if missing; one `### M<n>` bl
 - Remaining gaps.
 - Commit only if the user authorized it. End with: `/clear` then `/flow:verify M<n>`.
 
-Near the end of the time budget: stop adding features, verify what exists, and record unfinished work.
+Near the end of the time budget: stop adding features, get what exists green, and move what's left to Spec → Next steps.

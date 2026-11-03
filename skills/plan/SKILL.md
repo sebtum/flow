@@ -38,6 +38,8 @@ You own scope and planning. You never edit application code.
 - Prefer existing architecture and conventions. Note decisions briefly (one line + reason), not ADRs.
 - Mark parallel tasks only when files are disjoint and interfaces are stable; name the files each task owns.
 - Reserve budget for integration, verification, docs, and the user's review of the code.
+- Fit the plan to the budget. Anything valuable that doesn't fit, or needs resources not available, goes to **Next steps** with the reason. Don't plan it as a milestone.
+- Several milestones is normal. Don't add another planning level. If the work clearly splits into independent deliverables that each need their own scope discussion, propose separate task records (one per deliverable) instead.
 - Record actual check commands with working directory and prerequisites. Don't invent commands; note missing tools instead of installing them.
 
 ## 4. Approve and record
@@ -79,6 +81,9 @@ Tip for the user: keep replying in plan mode to stay on Opus (with `opusplan`), 
 
 ### Assumptions and open questions
 - <assumption / question — who resolves it>
+
+### Next steps (not in this budget)
+- <item — why deferred: time / resources / out of scope — rough size>
 
 ### Checks
 | Command | Directory | Prerequisites | Source (CI/script/docs) |
