@@ -2,7 +2,7 @@
 name: verify
 description: Independent review of one milestone against the Spec. Run in a fresh context.
 argument-hint: "[M<n>]"
-model: sonnet
+model: opus
 effort: high
 disable-model-invocation: true
 disallowed-tools: Agent, NotebookEdit
@@ -34,6 +34,8 @@ Never open `.workflow/*.log.md`. It holds the author's claims, not evidence.
    - Correctness and integration with existing code; backward compatibility.
    - Security and privacy where applicable: authorization boundaries, input handling, injection, secrets or sensitive data in logs and errors, unsafe defaults, transactions, race conditions. Don't disable existing security controls.
    - Tests: do they actually check the behaviour, including failure paths?
+   - Test changes are high-risk: any modified or deleted test, skipped or removed check, or loosened assertion in the diff goes in Findings, with whether it's justified by the Spec, even if it looks harmless.
+   - Missing tests: don't add them yourself. Write the proposed test (name, setup, assertion) under Optional so `/flow:execute fix M<n>` can add it.
 6. For a re-verify after fixes: recheck each earlier finding, then rerun the full relevant checks on the final state.
 
 ## Output

@@ -6,7 +6,8 @@ A small Claude Code plugin for spec-driven work in an existing repository. Three
 |---|---|---|---|
 | `/flow:plan` | Opus (plan mode) | Discuss scope, plan milestones | **Spec** section of the task record |
 | `/flow:execute` | Sonnet | Implement one milestone, or fix its findings | Code, tests, `<task>.log.md` |
-| `/flow:verify` | Sonnet | Independent review against the Spec | **Findings** section |
+| `/flow:verify` | Opus | Independent review against the Spec | **Findings** section |
+| `/flow:verify-codex` | Codex `gpt-6-astra` | Same review, done by OpenAI's Codex as a second opinion | **Findings** section |
 
 The handoff between phases is the task record in the target repo: `.workflow/<task>.md` (Spec + Findings). Execute keeps its progress notes in a separate `.workflow/<task>.log.md` so the verifier never sees them. The record's template is embedded at the end of `skills/plan/SKILL.md`, so no plugin file has to be read from outside your project.
 
@@ -25,7 +26,7 @@ Then, inside Claude Code, choose the model once (saved as your default):
 /model opusplan
 ```
 
-`opusplan` uses Opus in plan mode and Sonnet otherwise. The plan skill also requests Opus for its first turn, and execute/verify request Sonnet, so routing works without switching models by hand.
+`opusplan` uses Opus in plan mode and Sonnet otherwise. The plan skill also requests Opus for its first turn, execute requests Sonnet and verify requests Opus, so routing works without switching models by hand. Verify uses a different model from execute on purpose, so the two are less likely to share blind spots.
 
 The repo is private, so installing uses your existing GitHub credentials (e.g. `gh auth login`). From a local clone you can also run `claude plugin install flow --marketplace /absolute/path/to/flow`.
 
@@ -49,6 +50,11 @@ claude
 - **Always `/clear` between phases.** A slash command runs in the current conversation and cannot clear it or open a new window. `/clear` gives each phase a fresh context; the task record carries everything forward. A new terminal window works just as well.
 - **Small tasks:** one milestone. Same loop.
 - **Ambiguity during execution:** execute stops and suggests `/flow:plan <question>`. That is the single, narrow Opus escalation; the answer is recorded under Decisions.
+- **When a milestone is done:** only when its newest verify ran at the current `HEAD`, with no uncommitted changes and no open defects. Every `execute fix` needs another verify.
+
+## Session names
+
+Running a flow command renames the session, the same as `/rename`: `/flow:execute M2` becomes `items-pagination · execute M2` (the task name is added when `.workflow/` holds exactly one task record, otherwise it's `flow execute M2`). The name stays across `/clear` until the next flow command, so `/resume` shows which stage each session was. This is a `UserPromptSubmit` hook (`hooks/session-title.js`, needs `node` on `PATH`). It ignores other prompts and never blocks one. To turn it off, disable hooks for the plugin or delete `hooks/hooks.json` in your installed copy.
 
 ## Several milestones
 
@@ -71,11 +77,22 @@ loop for each milestone k:
 - It runs the checks itself and probes cases beyond the author's tests.
 - Its only edit is appending to **Findings**. It still has shell access, so this is an instruction, not enforced read-only access.
 
+## Codex as a second verifier
+
+`/flow:verify-codex M<n> [effort]` runs the same review with OpenAI's Codex CLI, so the code is checked by a different model family than the one that wrote it. Codex only reports; fixes still go through `/flow:execute fix M<n>`, followed by a new verify from either verifier.
+
+- **Setup:** `npm i -g @openai/codex` and `codex login` (ChatGPT plan or API key). Runs use your Codex limits.
+- **Model:** pinned to `gpt-6-astra` (Codex's frontier tier, the Opus equivalent) at effort `high`, independent of your `~/.codex/config.toml`. Pass `xhigh` as the second argument for high-risk milestones.
+- **Same rules:** `scripts/codex-verify.js` sends Codex the body of `skills/verify/SKILL.md`, so both verifiers follow one set of instructions. Codex returns the Findings block and Claude appends it unchanged.
+- **Enforced no-edit:** Codex runs with `-s workspace-write` so checks can build and write caches, and the script compares `git status`, the diff and untracked file contents before and after. Any change rejects the findings and lists the changed files. Ignored files (build output) aren't compared.
+- **Usage line:** every run ends with a `STATUS:` line, e.g. `Codex gpt-6-astra/high · context 61k used, 197k left (258k) · tokens in 412k (380k cached) / out 9.8k · 5h 28% used · weekly 79% left, resets Tue 14:05`, read from the run's Codex session log.
+- **When to use it:** for security-sensitive or otherwise high-risk milestones, or alternating with `/flow:verify`. `/code-review` adds little on top of either, since it doesn't know the Spec.
+
 Security reasoning is part of `/flow:verify`. For security-sensitive milestones you can additionally run Claude Code's built-in `/security-review` (after `/clear`) as a second opinion. It reviews your branch against `origin`'s default branch, so it needs an `origin` remote. Neither replaces CI.
 
 ## Not included
 
-- No hooks. The target repo's own hooks and CI are left untouched. A changed-file formatter hook is a possible future extension.
+- No hooks besides the session-name hook. Codex is used only by `/flow:verify-codex`, never automatically. The target repo's own hooks and CI are left untouched. A changed-file formatter hook is a possible future extension.
 - No automatic model router, caching, or extra reviewer agents.
 
 ## Limitations

@@ -18,7 +18,7 @@ You own scope and planning. You never edit application code.
 - Find the task record: list `.workflow/*.md` in the repo root. Reuse the one that matches the input. If none matches, this is a new task; pick a short kebab-case name.
 - Decide what the input is:
   - **Goal or requirement link** → new task or re-scope: steps 1–3.
-  - **Milestone id** (e.g. `M3`) → detail only that milestone using the existing Spec: step 3.
+  - **Milestone id** (e.g. `M3`) → detail only that milestone using the existing Spec: step 3. Before relying on earlier milestones as done, apply the done rule below; if one isn't done, say so and suggest verifying it first.
   - **Narrow question** raised during execution → answer it from the Spec, the cited code and requirements. Record the decision under Decisions. Do not replan anything else.
 
 ## 1. Understand (targeted, not exhaustive)
@@ -39,8 +39,9 @@ You own scope and planning. You never edit application code.
 - Mark parallel tasks only when files are disjoint and interfaces are stable; name the files each task owns.
 - Reserve budget for integration, verification, docs, and the user's review of the code.
 - Fit the plan to the budget. Anything valuable that doesn't fit, or needs resources not available, goes to **Next steps** with the reason. Don't plan it as a milestone.
+- **Done rule:** a milestone is done only when its newest Findings block (from `/flow:verify` or `/flow:verify-codex`) was taken at the current `git rev-parse --short HEAD`, has no "+ uncommitted", and lists no open Defects (or the user explicitly accepted them). Every `execute fix` needs a new verify.
 - Several milestones is normal. Don't add another planning level. If the work clearly splits into independent deliverables that each need their own scope discussion, propose separate task records (one per deliverable) instead.
-- Record actual check commands with working directory and prerequisites. Don't invent commands; note missing tools instead of installing them.
+- Record actual check commands with working directory and prerequisites. Don't invent commands; note missing tools instead of installing them. Cover unit, integration and E2E tests, lint/type checks and any repo-required scanners; for each level the repo doesn't have, add a Checks row saying so. Verify runs only what is listed here.
 
 ## 4. Approve and record
 - Present the plan via ExitPlanMode. After approval, create or update `.workflow/<task>.md` using the template below. Write only the **Spec** section (plus an empty Findings section for a new record). Never create or read `.workflow/<task>.log.md`; that is execute's file. Link sources rather than copying them.
