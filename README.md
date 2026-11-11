@@ -28,6 +28,8 @@ Then, inside Claude Code, choose the model once (saved as your default):
 
 `opusplan` uses Opus in plan mode and Sonnet otherwise. The plan skill also requests Opus for its first turn, execute requests Sonnet and verify requests Opus, so routing works without switching models by hand. Verify uses a different model from execute on purpose, so the two are less likely to share blind spots.
 
+**Updating:** `plugin.json` sets no `version`, so Claude Code uses the commit as the version and every push to `main` is an update. In a session: `/plugin` → **Installed** → flow → **Update now**, then `/reload-plugins`. From the shell: `claude plugin update flow@flow`. To get updates automatically, turn on **Enable auto-update** for the flow marketplace in `/plugin` → **Marketplaces**.
+
 The repo is private, so installing uses your existing GitHub credentials (e.g. `gh auth login`). From a local clone you can also run `claude plugin install flow --marketplace /absolute/path/to/flow`.
 
 ## Daily loop

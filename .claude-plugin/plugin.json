@@ -1,6 +1,5 @@
 {
   "name": "flow",
-  "version": "0.1.0",
   "description": "Spec-driven workflow: plan (Opus, plan mode), execute (Sonnet), verify (Opus, fresh context) with one task record as the handoff.",
   "author": {
     "name": "sebtum"
