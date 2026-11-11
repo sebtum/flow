@@ -52,7 +52,7 @@ claude
 - **Always `/clear` between phases.** A slash command runs in the current conversation and cannot clear it or open a new window. `/clear` gives each phase a fresh context; the task record carries everything forward. A new terminal window works just as well.
 - **Small tasks:** one milestone. Same loop.
 - **Ambiguity during execution:** execute stops and suggests `/flow:plan <question>`. That is the single, narrow Opus escalation; the answer is recorded under Decisions.
-- **When a milestone is done:** only when its newest verify ran at the current `HEAD`, with no uncommitted changes and no open defects. Every `execute fix` needs another verify.
+- **When a milestone is done:** only when its newest verify ran at the current `HEAD`, with no uncommitted changes, no open defects and no Blocked checks. Every `execute fix` needs another verify.
 
 ## Session names
 
@@ -76,8 +76,33 @@ loop for each milestone k:
 
 - It runs after `/clear`, so it never sees the implementation conversation.
 - It reads only the **Spec**, the linked requirements, the diff from the baseline revision, and the surrounding code. It never opens `<task>.log.md`, which holds the author's claims. That's why the log is a separate file rather than a section a reader would scroll past.
-- It runs the checks itself and probes cases beyond the author's tests.
-- Its only edit is appending to **Findings**. It still has shell access, so this is an instruction, not enforced read-only access.
+- It runs the checks itself and probes cases beyond the author's tests. A check it couldn't run goes under **Blocked**, and a block with Blocked items is incomplete, never clean.
+- Its only edit is appending to **Findings**. It still has shell access, so this is an instruction, not enforced read-only access. When the repo has a `verify-env.json`, the checks run in a throwaway worktree, and changes there are reported.
+
+## Services for checks (`verify-env.json`)
+
+Integration and E2E checks need running services. A repo describes how to start a private copy of them in `.workflow/verify-env.json`, and both verifiers use it:
+
+```json
+{ "requires": ["docker"], "network": true,
+  "up": "make verify-up", "health": "make verify-health", "down": "make verify-down",
+  "timeoutSeconds": 900 }
+```
+
+`scripts/verify-env.js` handles it:
+1. It checks `requires`: `docker` with `docker info`, any other name on `PATH`.
+2. It creates a throwaway worktree of `HEAD` with the uncommitted and untracked changes, without `.workflow/*.log.md`. It also copies any ignored files listed in `"copy"`, e.g. `[".env"]`.
+3. It picks a free block of `"ports"` ports (default 4) from 29000 up.
+4. It runs `up`, then polls `health` every 3 s until it passes or `timeoutSeconds` runs out.
+
+All three commands run in the worktree with **`FLOW_RUN_ID`** and **`FLOW_PORT_BASE`** set. The repo must use them for its project name, data volume and ports, so a verify never touches your dev stack. On failure it exits early with the log tail, and nothing else runs.
+
+- **`/flow:verify-codex`** does this automatically. Codex runs in the worktree, and afterwards `down` runs and the worktree is removed. That also happens on Ctrl-C and when Codex fails. `--no-env` skips it.
+- **`/flow:verify`** runs `verify-env.js up`, runs the checks in the printed worktree, and finishes with `verify-env.js down <id>`.
+- **By hand:** `node scripts/verify-env.js run -- make e2e` does up, the command and down in one go. `down --all` removes leftovers of the current repo.
+- **`FLOW_KEEP_ENV=1`** keeps the env after a run, for debugging, and prints the tear-down command.
+- **Codex sandbox:** `"network": true` keeps Codex in `workspace-write` and turns on its network access. On WSL with Docker Desktop that is enough: tested with codex-cli 0.166, Docker and `localhost` both work. Only if that isn't enough, set `"sandbox": "danger-full-access"`. It applies only inside the throwaway worktree, and the repository itself is still checked for changes. Codex's Linux sandbox fails when the workspace is your home directory (a writable symlink such as `~/.aws` breaks bubblewrap). The worktrees live under the temp directory, which avoids that.
+- **WSL:** Docker Desktop needs *Settings → Resources → WSL integration* turned on for your distro, otherwise `docker info` fails and verify stops right away with that hint.
 
 ## Codex as a second verifier
 
@@ -86,7 +111,9 @@ loop for each milestone k:
 - **Setup:** `npm i -g @openai/codex` and `codex login` (ChatGPT plan or API key). Runs use your Codex limits.
 - **Model:** pinned to `gpt-6-astra` (Codex's frontier tier, the Opus equivalent) at effort `high`, independent of your `~/.codex/config.toml`. Pass `xhigh` as the second argument for high-risk milestones.
 - **Same rules:** `scripts/codex-verify.js` sends Codex the body of `skills/verify/SKILL.md`, so both verifiers follow one set of instructions. Codex returns the Findings block and Claude appends it unchanged.
-- **Enforced no-edit:** Codex runs with `-s workspace-write` so checks can build and write caches, and the script compares `git status`, the diff and untracked file contents before and after. Any change rejects the findings and lists the changed files. Ignored files (build output) aren't compared.
+- **Enforced no-edit:** Codex runs with `-s workspace-write` so checks can build and write caches, and the script compares `git status`, the diff and untracked file contents before and after. It checks the repository and, with a `verify-env.json`, the worktree too. Any change rejects the findings (exit 2) and lists the changed files. Ignored files (build output) aren't compared.
+- **Services:** with a `verify-env.json`, Codex runs in a worktree next to a running private stack (see above). Without one, Codex has no network, and checks that need services are reported as Blocked.
+- **Incomplete verify:** if the Findings block lists Blocked checks, or has no `Blocked:` line, the script exits 4. The block is still recorded, but the milestone isn't done.
 - **Usage line:** every run ends with a `STATUS:` line, e.g. `Codex gpt-6-astra/high · context 61k used, 197k left (258k) · tokens in 412k (380k cached) / out 9.8k · 5h 28% used · weekly 79% left, resets Tue 14:05`, read from the run's Codex session log.
 - **When to use it:** for security-sensitive or otherwise high-risk milestones, or alternating with `/flow:verify`. `/code-review` adds little on top of either, since it doesn't know the Spec.
 

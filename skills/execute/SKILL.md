@@ -14,7 +14,7 @@ Input: $ARGUMENTS
 - Open the task record `.workflow/<task>.md` (ask if several match). Read the Spec and the named milestone. For `fix M<n>`, also read that milestone's latest Findings. Your own notes are in `.workflow/<task>.log.md`.
 - If the milestone is missing or underspecified, stop and suggest `/flow:plan M<n>`. Do not plan it yourself.
 - Check `git status --short`; don't touch pre-existing changes listed in Baseline.
-- Treat a milestone as done only when its newest Findings block (from either verifier) was taken at the current `git rev-parse --short HEAD`, has no "+ uncommitted", and lists no open Defects (or the user explicitly accepted them). If the named milestone depends on one that isn't done, say so and suggest `/clear` then `/flow:verify M<k>` before continuing.
+- Treat a milestone as done only when its newest Findings block (from either verifier) was taken at the current `git rev-parse --short HEAD`, has no "+ uncommitted", and lists no open Defects and no Blocked checks (or the user explicitly accepted them). If the named milestone depends on one that isn't done, say so and suggest `/clear` then `/flow:verify M<k>` before continuing.
 
 ## 1. Implement
 - Follow the plan and repo conventions. Keep the diff focused: no unrelated refactors, no silent contract changes.

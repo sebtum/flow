@@ -11,8 +11,11 @@ value for effort within each group.
 2. **Say how each acceptance criterion is verified.** Plan writes, per criterion, whether it's checked by a test, a
    probe, or an inspection checklist (for security, docs and compliance criteria that can't be a test). Verify records
    the method it used.
-3. **Done 2026-11-10.** **Require a complete Checks list.** Verify only runs what Spec → Checks lists, plus its own probes. Plan should list
+3. **Done 2026-11-10, extended 2026-11-11.** **Require a complete Checks list.** Verify only runs what Spec → Checks lists, plus its own probes. Plan should list
    the unit, integration and E2E commands when the repo has them, and say explicitly when one doesn't exist.
+   Since 2026-11-11, plan must list a real E2E command (the running app, not in-process tests). If there's none, it adds a
+   "missing" row plus a milestone (or Next steps). It writes `.workflow/verify-env.json` when checks need services, and
+   verify reports checks it couldn't run as **Blocked**, which keeps the milestone open.
 4. **Done 2026-11-10.** **Let verify propose missing tests.** Verify doesn't add tests itself (the checker shouldn't write the evidence it
    judges). It can put the proposed test as text in Findings for `execute fix` to add.
 5. **Partly done 2026-11-10** (verify now uses `opus`, and `/flow:verify-codex` adds Codex as a second verifier; choosing by risk automatically is still open). **Choose the verify model by risk.** Today verify uses `model: sonnet`, the same as execute, so they can share blind
@@ -32,10 +35,15 @@ Today the read-only rule is an instruction: `disallowed-tools` blocks only `Agen
 8. **Level 2, restrict tools:** remove `Edit` / `Write` from verify and have it return Findings as text to be appended
    by something else, or add a PreToolUse hook that blocks writes outside the task record's Findings. Bash can still
    write files, so this alone isn't enough.
-9. **Level 3, isolate the environment:** run verify in a separate read-only checkout or worktree, or use Claude Code's
-   sandbox to limit where Bash can write.
-10. **Partly done 2026-11-10** (enforced for `/flow:verify-codex` by `scripts/codex-verify.js`; not yet for `/flow:verify`). **Detect changes:** after verify, check that `git status` / `git diff` are unchanged apart from the Findings block,
-    and fail loudly otherwise.
+9. **Partly done 2026-11-11.** When the repo has a `.workflow/verify-env.json`, `scripts/verify-env.js` runs the checks
+   in a throwaway worktree, without the author's log. Codex runs entirely inside it; `/flow:verify` runs its checks there.
+   Still open: the worktree isn't read-only, `/flow:verify` without a `verify-env.json` runs in place, and Claude Code's
+   sandbox isn't used. **Level 3, isolate the environment:** run verify in a separate read-only checkout or worktree, or
+   use Claude Code's sandbox to limit where Bash can write.
+10. **Partly done 2026-11-10** (enforced for `/flow:verify-codex` by `scripts/codex-verify.js`, for both the repository
+    and, since 2026-11-11, its worktree; for `/flow:verify`, `verify-env.js down` reports changes in the worktree, but
+    not in the repository itself). **Detect changes:** after verify, check that `git status` / `git diff` are unchanged
+    apart from the Findings block, and fail loudly otherwise.
 
 ## Fixes and the end of the loop
 
