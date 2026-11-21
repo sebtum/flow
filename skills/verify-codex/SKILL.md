@@ -14,7 +14,7 @@ Input: $ARGUMENTS
 Codex is the verifier here. You only run it and record its result. Don't review the code yourself, don't add or change findings, and never open `.workflow/*.log.md`.
 
 ## Steps
-1. Find the task record `.workflow/<task>.md` (ask if several match) and the milestone id from the input. An optional second word is the Codex reasoning effort (`low`, `medium`, `high`, `xhigh`, `max`); default `high`. If the input says `no-env`, add `--no-env`.
+1. Find the task record `.workflow/<task>.md` (task records are `.workflow/*.md` except `roadmap.md` and `*.log.md`; ask if several match) and the milestone id from the input. An optional second word is the Codex reasoning effort (`low`, `medium`, `high`, `xhigh`, `max`); default `high`. If the input says `no-env`, add `--no-env`.
 2. Run this with Bash and `run_in_background: true` (Codex can take longer than the foreground limit, and starting the services adds time), then wait for it to finish:
    ```
    node "${CLAUDE_PLUGIN_ROOT}/scripts/codex-verify.js" --task .workflow/<task>.md --milestone M<n> [--effort <effort>] [--no-env]
@@ -30,4 +30,4 @@ Codex is the verifier here. You only run it and record its result. Don't review 
 4. Always end your report with the `STATUS:` line exactly as printed (if there is one), then the next step:
    - Defects → `/clear` then `/flow:execute fix M<n>`
    - Blocked → fix the environment, then `/clear` and `/flow:verify-codex M<n>` again
-   - Clean → the milestone is done if the done rule holds (this block was taken at the current `HEAD`, without uncommitted changes, and lists no Defects and no Blocked checks).
+   - Clean → the milestone is done if the done rule holds (this block was taken at the current `HEAD`, without uncommitted changes, and lists no Defects and no Blocked checks). If the milestone's `Touches:` line names auth, security, payments or personal data, suggest `/clear` then `/security-review` as well.

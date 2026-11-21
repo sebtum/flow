@@ -1,6 +1,6 @@
 {
   "name": "flow",
-  "description": "Spec-driven workflow: plan (Opus, plan mode), execute (Sonnet), verify (Opus, fresh context) with one task record as the handoff.",
+  "description": "Spec-driven workflow with deterministic guard rails: roadmap, plan (Gherkin scenarios, interface contracts), execute, clean (CRAP), harden (mutation testing), qa (black-box), verify. Three modes, one task record as the handoff.",
   "author": {
     "name": "sebtum"
   },

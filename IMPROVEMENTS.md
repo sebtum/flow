@@ -8,7 +8,7 @@ value for effort within each group.
 1. **Done 2026-11-10.** **Flag test changes as high-risk.** Add a rule to `skills/verify/SKILL.md`: any modified or deleted test, skipped
    check or loosened assertion in the diff is reviewed as high-risk and listed in Findings, even if it looks harmless.
    This targets the most likely way an implementer gets to green, which is weakening the tests.
-2. **Say how each acceptance criterion is verified.** Plan writes, per criterion, whether it's checked by a test, a
+2. **Done 2026-11-21.** **Say how each acceptance criterion is verified.** Plan writes, per criterion, whether it's checked by a test, a
    probe, or an inspection checklist (for security, docs and compliance criteria that can't be a test). Verify records
    the method it used.
 3. **Done 2026-11-10, extended 2026-11-11.** **Require a complete Checks list.** Verify only runs what Spec → Checks lists, plus its own probes. Plan should list
@@ -18,10 +18,10 @@ value for effort within each group.
    verify reports checks it couldn't run as **Blocked**, which keeps the milestone open.
 4. **Done 2026-11-10.** **Let verify propose missing tests.** Verify doesn't add tests itself (the checker shouldn't write the evidence it
    judges). It can put the proposed test as text in Findings for `execute fix` to add.
-5. **Partly done 2026-11-10** (verify now uses `opus`, and `/flow:verify-codex` adds Codex as a second verifier; choosing by risk automatically is still open). **Choose the verify model by risk.** Today verify uses `model: sonnet`, the same as execute, so they can share blind
+5. **Done 2026-11-21** (verify uses `opus`; plan sets `Judge:` per milestone, verify-codex in full mode; `/security-review` is suggested by `Touches:` tags). **Choose the verify model by risk.** Today verify uses `model: sonnet`, the same as execute, so they can share blind
    spots. For milestones marked high-risk, use a stronger or different model, or a second-opinion pass
    (`/security-review`, Codex, CodeRabbit on the PR). Diversity matters more than the number of reviewers.
-6. **Risk tags and focused checklists.** Plan tags each milestone with what it touches (`Touches: auth, db-migration,
+6. **Partly done 2026-11-21** (plan writes `Touches:` tags; per-tag checklists are still open). **Risk tags and focused checklists.** Plan tags each milestone with what it touches (`Touches: auth, db-migration,
    security, ...`). Verify adds a focused checklist per tag, or a focused read-only reviewer per tag, each writing its
    own Findings block. Worth it for auth/IAM, migrations and security; usually not for frontend or routing.
 7. **Measure verify itself.** Seed known defects in a test milestone and check the catch rate. Track defects found by CI
@@ -32,7 +32,7 @@ value for effort within each group.
 Today the read-only rule is an instruction: `disallowed-tools` blocks only `Agent` and `NotebookEdit`, and `Edit`,
 `Write` and `Bash` stay available.
 
-8. **Level 2, restrict tools:** remove `Edit` / `Write` from verify and have it return Findings as text to be appended
+8. **Partly done 2026-11-21** (`hooks/guard.js` refuses edits outside each step's lane and opening the log in verify and qa; Bash writes are still open). **Level 2, restrict tools:** remove `Edit` / `Write` from verify and have it return Findings as text to be appended
    by something else, or add a PreToolUse hook that blocks writes outside the task record's Findings. Bash can still
    write files, so this alone isn't enough.
 9. **Partly done 2026-11-11.** When the repo has a `.workflow/verify-env.json`, `scripts/verify-env.js` runs the checks
@@ -50,7 +50,7 @@ Today the read-only rule is an instruction: `disallowed-tools` blocks only `Agen
 11. **Done 2026-11-10.** **A milestone is done only when the latest verify is at HEAD.** Every `execute fix` must be followed by a verify
     before the milestone counts as done. Check that the newest Findings header's revision matches `HEAD` (and that
     there are no uncommitted changes) before execute or plan treats the milestone as closed.
-12. **Freeze acceptance tests.** Optionally write the acceptance tests in Plan or a first milestone and mark them as
+12. **Done 2026-11-21** (QA scripts and contract files are frozen for execute by the guard hook; verify flags any contract change plan didn't record). **Freeze acceptance tests.** Optionally write the acceptance tests in Plan or a first milestone and mark them as
     not editable by execute. Enforce outside the agent (CODEOWNERS or a CI check that fails if those files change).
 
 ## Parallel execution
@@ -73,7 +73,7 @@ Today the read-only rule is an instruction: `disallowed-tools` blocks only `Agen
     `git blame` then maps each line to a run, and Findings already record the commit that was checked.
 17. **Link runs to transcripts.** A hook writes the Claude Code session ID into the log, so a change can be traced back
     to the conversation that produced it. (Hooks receive the session ID; check whether anything else exposes it.)
-18. **Enforce per-agent permissions.** Owned files for sub-agents are an instruction today (`skills/execute/SKILL.md`,
+18. **Partly done 2026-11-21** (lanes per step: hook before each edit, `scripts/lane.js` after the step; separate git identities are still open). **Enforce per-agent permissions.** Owned files for sub-agents are an instruction today (`skills/execute/SKILL.md`,
     parallel tasks). A hook can block writes outside an agent's owned files. Strongest version: separate git identities
     or tokens per role (execute commits but can't push; verify can't commit).
 
@@ -107,3 +107,11 @@ Today the read-only rule is an instruction: `disallowed-tools` blocks only `Agen
 
 27. **Done 2026-11-10.** **Name sessions after the stage.** A `UserPromptSubmit` hook (`hooks/session-title.js`) sets
     the session name from the flow command, e.g. `items-pagination · execute M2`, the same as `/rename`.
+
+## Modes, gates and roadmap (added 2026-11-21)
+
+28. **Clean and harden for Java, Go and Rust.** Today plan and both gates show a notice for these stacks. Java: JaCoCo coverage + PIT; Go: `go test -coverprofile` + gremlins; Rust: cargo-llvm-cov + cargo-mutants. `crap.js` already gets complexity from lizard for all of them; it needs a coverage adapter (JaCoCo XML, Go cover profiles) or a conversion to LCOV.
+29. **`/flow:run M<n>`: the chain as sub-agents.** Runs execute → clean → harden → qa → judge as fresh sub-agents one after another, so the user doesn't type `/clear` between steps. Plan and roadmap stay interactive skills. Needs agent definitions that reuse the skill bodies, and the guard keyed on the sub-agent rather than the session.
+30. **Codex variants of qa and harden.** Black-box tests or mutation-killing tests from another model family, for full mode, like `/flow:verify-codex`.
+31. **Lane check for Bash writes during the step.** The edit hook sees only Claude's edit tools. A `PostToolUse` hook on Bash could run `lane.js check` after each command and warn early.
+32. **Measure the gates.** Track per milestone: CRAP before/after clean, mutation score before/after harden, qa scenarios failing on first run, and verify Defects that the gates should have caught. Tune the defaults (CRAP 8, mutation 80%, fix rounds 2) from that.

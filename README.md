@@ -1,15 +1,37 @@
 # flow
 
-A small Claude Code plugin for spec-driven work in an existing repository. Three commands, one task record.
+A Claude Code plugin for spec-driven work in an existing repository. One task record per feature, a fresh context per step, and deterministic guard rails: scripts and hooks decide pass or fail wherever they can, so a long agent run can't drift from the plan unnoticed.
 
 | Command | Model | Does | Writes |
 |---|---|---|---|
-| `/flow:plan` | Opus (plan mode) | Discuss scope, plan milestones | **Spec** section of the task record |
+| `/flow:roadmap` | Opus (plan mode) | Vision and ordered features, kept to one screen | `.workflow/roadmap.md` |
+| `/flow:plan` | Opus (plan mode) | Scope, mode, Gherkin scenarios, QA procedure, interface contracts, milestones | **Spec** section, contract files |
 | `/flow:execute` | Sonnet | Implement one milestone, or fix its findings | Code, tests, `<task>.log.md` |
-| `/flow:verify` | Opus | Independent review against the Spec | **Findings** section |
+| `/flow:clean` | Sonnet | Refactor changed functions whose complexity is too high (CRAP score) | Code only |
+| `/flow:harden` | Sonnet | Add tests until mutation testing and coverage pass | Tests only |
+| `/flow:qa` | Sonnet | Turn the QA procedure into black-box scripts and run them, without reading the source | QA scripts only |
+| `/flow:verify` | Opus | Independent review against the Spec; reruns every check | **Findings** section |
 | `/flow:verify-codex` | Codex `gpt-6-astra` | Same review, done by OpenAI's Codex as a second opinion | **Findings** section |
 
-The handoff between phases is the task record in the target repo: `.workflow/<task>.md` (Spec + Findings). Execute keeps its progress notes in a separate `.workflow/<task>.log.md` so the verifier never sees them. The record's template is embedded at the end of `skills/plan/SKILL.md`, so no plugin file has to be read from outside your project.
+The handoff between steps is the task record in the target repo: `.workflow/<task>.md` (Spec + Findings). Execute, clean and harden keep notes in a separate `.workflow/<task>.log.md` that the verifier and qa never see. The templates are embedded in `skills/plan/SKILL.md` and `skills/roadmap/SKILL.md`, so no plugin file has to be read from outside your project.
+
+## Modes
+
+Plan recommends a mode per task and you confirm it. It's stored in Spec → Mode and lanes.
+
+| Mode | Steps per milestone | Use for |
+|---|---|---|
+| **lite** | plan → execute → verify | small or low-risk work |
+| **standard** | plan with a specification discussion and contracts → execute (contract guard) → verify, which walks the QA procedure itself | most features |
+| **full** | standard, plus execute → clean → harden → qa → verify-codex | risky or long-lived code |
+
+A milestone in lite or standard mode can add gates with `Gates: clean, harden, qa`. Every step ends by printing the next command, so you don't need to remember the chain.
+
+- **Specification (standard, full):** plan turns your words into example mapping (rules, examples, open questions), then into Gherkin scenarios with ids (`S1.2`) and a QA procedure a person could follow against the running app.
+- **Contract:** a file that pins the shape of a public interface before coding: OpenAPI for HTTP, `*.contract.ts` type assertions, `.pyi` stubs, JSON Schema. A command checks it (`tsc`, `mypy.stubtest`, `oasdiff`, Schemathesis). Only plan changes it.
+- **CRAP score:** `complexity² × (1 − coverage)³ + complexity` per changed function. Limit 8 by default. Clean refactors only when complexity alone is over the limit; low coverage goes to harden.
+- **Mutation testing:** small deliberate bugs are planted in the changed code; tests must catch at least 80% of them by default (Stryker for TS/JS; mutmut for Python, or cosmic-ray on native Windows).
+- **Languages:** clean and harden support TS/JS and Python. For Java, Go or Rust, plan and both gates say so and recommend standard mode with `Gates: qa`.
 
 ## One-time setup
 
@@ -37,11 +59,11 @@ The repo is private, so installing uses your existing GitHub credentials (e.g. `
 ```
 claude
 > /flow:plan <goal, or link to the issue/spec>
-    ... discuss in plan mode, approve the plan → Spec is written
+    ... discuss in plan mode, approve the plan → Spec (and contracts) are written
 > /clear
 > /flow:execute M1
 > /clear
-> /flow:verify M1
+> /flow:verify M1            (full mode: /flow:clean, /flow:harden, /flow:qa first, then /flow:verify-codex)
     ... if there are defects:
 > /clear
 > /flow:execute fix M1
@@ -53,10 +75,15 @@ claude
 - **Small tasks:** one milestone. Same loop.
 - **Ambiguity during execution:** execute stops and suggests `/flow:plan <question>`. That is the single, narrow Opus escalation; the answer is recorded under Decisions.
 - **When a milestone is done:** only when its newest verify ran at the current `HEAD`, with no uncommitted changes, no open defects and no Blocked checks. Every `execute fix` needs another verify.
+- **The fix loop ends:** only evidence-backed findings block "done" (a failing check, a scenario without evidence, a high or critical security issue). Re-verify is scoped to the earlier findings, all checks and the fixed lines. After `Fix rounds` fixes (default 2), execute stops and `/flow:plan M<n>` decides: accept the gaps, cut scope or re-plan.
 
 ## Session names
 
 Running a flow command renames the session, the same as `/rename`: `/flow:execute M2` becomes `items-pagination · execute M2` (the task name is added when `.workflow/` holds exactly one task record, otherwise it's `flow execute M2`). The name stays across `/clear` until the next flow command, so `/resume` shows which stage each session was. This is a `UserPromptSubmit` hook (`hooks/session-title.js`, needs `node` on `PATH`). It ignores other prompts and never blocks one. To turn it off, disable hooks for the plugin or delete `hooks/hooks.json` in your installed copy.
+
+## Roadmap
+
+`/flow:roadmap <vision>` discusses vision, users, constraints and order in plan mode, then writes `.workflow/roadmap.md`: a short Features table, one row per feature, each later one task record. `/flow:plan <feature>` creates that feature's record and fills in its row. Only these two commands open the roadmap, so it costs no context in daily work. `/flow:roadmap` with no argument reviews each feature's status from its record.
 
 ## Several milestones
 
@@ -70,14 +97,52 @@ loop for each milestone k:
 
 - **Planning the bigger picture** happens once, in the first `/flow:plan`. It fixes the goal, the milestone order and dependencies, and what doesn't fit the budget. Later `/flow:plan Mk` runs only add detail to one milestone. If execute or verify shows the goal or scope itself is wrong, run `/flow:plan <what changed>` to re-plan.
 - **Next steps:** whatever doesn't fit the time budget or available resources goes into Spec → *Next steps*, with the reason it was deferred. Plan writes it up front, and execute adds what it couldn't finish. At the end, the record shows what was done (verified milestones) and what comes next.
-- **Another level of hierarchy?** Not inside one record. When the work splits into independent deliverables that each need their own scope discussion (e.g. separate features or releases over weeks), use one task record per deliverable in `.workflow/`. For a project of a few hours, a single record with 2 to 5 milestones is enough.
+- **Tasks and waves:** a big milestone can be split into tasks that run as parallel Sonnet agents, wave by wave. Execute leads: it starts one agent per task, collects a fixed report from each, and runs the file check, tests and contract check before the next wave. Plan splits only when the milestone is big (more than about 5 files or 400 lines) and its parts are independent. `lane.js tasks` enforces the rest:
+  - every task delivers at least one scenario, and a scenario belongs to one task, so there are never more tasks than scenarios
+  - 2 to 6 tasks per milestone, at most 4 per wave
+  - tasks in one wave own disjoint files
+  - no tasks in lite mode
+
+  Small work stays one piece, which execute codes alone.
+- **Another level of hierarchy?** Not inside one record. When the work splits into independent deliverables that each need their own scope discussion (e.g. separate features or releases over weeks), use `/flow:roadmap`: one task record per feature in `.workflow/`. For a project of a few hours, a single record with 2 to 5 milestones is enough.
 
 ## Why verify is unbiased
 
 - It runs after `/clear`, so it never sees the implementation conversation.
 - It reads only the **Spec**, the linked requirements, the diff from the baseline revision, and the surrounding code. It never opens `<task>.log.md`, which holds the author's claims. That's why the log is a separate file rather than a section a reader would scroll past.
 - It runs the checks itself and probes cases beyond the author's tests. A check it couldn't run goes under **Blocked**, and a block with Blocked items is incomplete, never clean.
-- Its only edit is appending to **Findings**. It still has shell access, so this is an instruction, not enforced read-only access. When the repo has a `verify-env.json`, the checks run in a throwaway worktree, and changes there are reported.
+- Its only edit is appending to **Findings**. The guard hook refuses other edits and opening the log. It still has shell access, so Bash writes rely on the instructions. When the repo has a `verify-env.json`, the checks run in a throwaway worktree, and changes there are reported.
+- **One judge per milestone.** `/flow:verify` in lite and standard mode, `/flow:verify-codex` in full mode, so the coder (Claude) and the judge come from different model families. `/security-review` is suggested only for milestones whose `Touches:` names auth, security, payments or personal data. `/code-review` and `/simplify` aren't part of the chain: verify and clean cover them, and they don't know the Spec.
+
+## Lanes and hooks
+
+A **lane** is the set of files one step may change. Spec → Mode and lanes names them with globs (`Test paths`, `QA path`, `Contract path`).
+
+| Step | May write |
+|---|---|
+| execute | code and tests; in a fix, existing tests only extended. Not contracts or QA scripts. |
+| clean | code only; not tests, QA scripts, contracts or the record |
+| harden | tests only |
+| qa | QA scripts, plus the `acceptance` Checks row and open questions in the record |
+| verify, verify-codex | the Findings block only |
+
+- **Before each edit** a `PreToolUse` hook (`hooks/guard.js`) refuses writes outside the current step's lane, with the reason. In verify, verify-codex and qa it also refuses opening `.workflow/*.log.md`.
+- **Per agent, in a milestone with tasks:**
+  - Each execute sub-agent first claims its task (`lane.js claim T<n>`). The hook sees the agent's id, so from then on it refuses that agent's edits outside the task's `Owns:` files.
+  - A task can be claimed once. A task with `After:` can start only when those tasks' agents have finished; a `SubagentStop` hook records that.
+  - The lead agent integrates within the normal execute lane.
+- **When execute tries to finish** (standard and full mode), a `Stop` hook runs the static contract checks (`scripts/contract.js --static`). If they fail, it sends execute back once with the output.
+- **After clean, harden and qa**, `scripts/lane.js check` lists every file changed since the step started that is outside its lane. This also catches files written through the shell, which the edit hook can't see.
+- The stage comes from the flow command you typed (saved by the session-name hook) and is forgotten on `/clear`. Sessions without a flow command are never affected. If the guard can't read the task record or a needed lane is empty, it allows the edit and shows a warning once. A broken guard never locks you out; lane checks and verify still catch drift.
+- The edit check takes about 0.1 s; the Stop hook runs the fast contract checks once (timeout 120 s). Your app isn't slowed: hooks only run while Claude works.
+
+## Gate scripts
+
+- `scripts/crap.js --lcov <file> --base <rev> [--max 8] [--task <record>]`: complexity from lizard (`pip install lizard`) plus line coverage from LCOV, for functions changed since `--base`. Exit 5 when a function is over the limit. Action per row: `refactor` (complexity alone too high) or `test-gap` (coverage too low).
+- `scripts/contract.js --task <record> [--static] [--root <dir>]`: runs the `contract` rows of Spec → Checks, and without `--static` the `contract-live` rows too. Exit 3 on a failure, 4 when a checker is missing.
+- `scripts/lane.js start|check <step> --task <record> [--milestone M<n> --wave W<n>]`: the lane check above; with `--wave`, every changed file must also be owned by a task of that wave. Exit 2 when files outside the lane changed.
+- `scripts/lane.js tasks --task <record> --milestone M<n>`: prints the milestone's tasks and checks the split. Exit 2 on a problem. `lane.js claim T<n> ...` is the command a sub-agent runs to take its task.
+- Tests: `node --test "scripts/test/*.test.js"`.
 
 ## Services for checks (`verify-env.json`)
 
@@ -121,13 +186,16 @@ Security reasoning is part of `/flow:verify`. For security-sensitive milestones 
 
 ## Not included
 
-- No hooks besides the session-name hook. Codex is used only by `/flow:verify-codex`, never automatically. The target repo's own hooks and CI are left untouched. A changed-file formatter hook is a possible future extension.
-- No automatic model router, caching, or extra reviewer agents.
+- Hooks: the session-name hook and the lane guard (edits, finishing execute, sub-agent claims) only. Codex is used only by `/flow:verify-codex`, never automatically. The target repo's own hooks and CI are left untouched.
+- No automatic model router, caching, or extra reviewer agents. No orchestrator that runs the steps as sub-agents yet (see IMPROVEMENTS).
 
 ## Limitations
 
 - Plan mode and its approval step are interactive. In headless runs (`claude -p`) plan mode isn't available, and `/flow:plan` writes the record directly.
-- Parallel execution depends on the plan marking tasks with disjoint files. Without that, execute works alone.
+- Parallel execution depends on the plan writing task lines with disjoint files. Without them, execute works alone. Per-agent enforcement covers Claude's edit tools; a sub-agent's shell writes are caught afterwards by `lane.js check --wave`, which tells only that a file belongs to no task of the wave, not which agent wrote it.
+- Clean and harden support TS/JS and Python only. Their tools (lizard, a coverage tool that writes LCOV, Stryker, mutmut or cosmic-ray) and qa's framework (e.g. Playwright) must be installed in the target repo; plan adds a setup milestone when they're missing.
+- The lane guard sees Claude's edit tools, not files written through the shell; `lane.js` and verify catch those afterwards.
+- Checks commands are written for bash. On Windows, `contract.js` runs them in Git Bash. mutmut doesn't run on native Windows, so plan picks cosmic-ray there for Python mutation testing. It is slower per mutant but needs no WSL. Neither tool has been run end to end with flow yet.
 
 ## Example: adopting an existing repository
 

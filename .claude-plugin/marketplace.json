@@ -8,7 +8,7 @@
     {
       "name": "flow",
       "source": "./",
-      "description": "Spec-driven workflow: plan, execute, verify."
+      "description": "Spec-driven workflow: roadmap, plan, execute, clean, harden, qa, verify."
     }
   ]
 }
