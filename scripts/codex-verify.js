@@ -19,6 +19,7 @@ const zlib = require("zlib");
 const { spawn, spawnSync } = require("child_process");
 const env = require("./verify-env");
 
+const PLUGIN_ROOT = path.resolve(__dirname, "..");
 const DEFAULT_MODEL = "gpt-6-astra";
 const DEFAULT_EFFORT = "high";
 const USAGE = "Usage: codex-verify.js --task .workflow/<task>.md --milestone M<n> [--model <m>] [--effort <e>] [--no-env]";
@@ -90,7 +91,7 @@ Rules that override the instructions below:
 - Do not modify, create or delete any file inside this repository, including \`.workflow/\`. Put scratch files only in the system temp directory. Your changes are detected and would invalidate this verify.
 - Do not append to the task record. Instead, return the Findings block as your final message, starting exactly with this header line:
   ${header}
-  followed by the Defects / Open questions / Optional / Blocked / Checks run lines described below. Nothing before the header. Write \`Blocked: none\` if every listed check ran.
+  followed by the Defects / Open questions / Optional / Scenarios / Blocked / Checks run lines described below. Nothing before the header. Write \`Blocked: none\` if every listed check ran.
 - Ignore the instruction about \`/clear\` (you start in a fresh context) and the "Services" section (that's for another runner; your environment is described next).
 - Never open \`.workflow/*.log.md\`.
 
@@ -99,7 +100,7 @@ ${servicesSection(state)}
 
 ---
 
-${verifyRules.replace(/\$ARGUMENTS/g, milestone)}`;
+${verifyRules.replace(/\$ARGUMENTS/g, milestone).replace(/\$\{CLAUDE_PLUGIN_ROOT\}/g, PLUGIN_ROOT.split(path.sep).join("/"))}`;
 }
 
 // The Blocked items of a Findings block: [] when it says none, a placeholder when the line is missing.
@@ -109,7 +110,7 @@ function blockedItems(block) {
   if (i < 0) return ["(the Findings block has no Blocked: line)"];
   const items = [lines[i].replace(/^\s*Blocked:\s*/, "")];
   for (let j = i + 1; j < lines.length; j++) {
-    if (/^\s*(Defects|Open questions|Optional|Checks run|Blocked):/.test(lines[j]) || /^#{1,6}\s/.test(lines[j])) break;
+    if (/^\s*(Defects|Open questions|Optional|Scenarios|Checks run|Blocked):/.test(lines[j]) || /^#{1,6}\s/.test(lines[j])) break;
     if (!/^\s+\S|^\s*[-*]\s/.test(lines[j])) break; // only indented or bulleted continuation lines
     items.push(lines[j]);
   }
